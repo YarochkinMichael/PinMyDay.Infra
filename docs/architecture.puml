@@ -1,0 +1,63 @@
+@startuml
+title PinMyDay - Terraform OIDC Architecture
+
+package "GitHub" {
+  [GitHub Actions\n(PinMyDay.Infra)]
+  [Environment: dev]
+  [Environment: prod]
+}
+
+package "Azure Entra ID" {
+  [App Registration\napp-pmd-terraform-ci-we]
+  [Federated Credential\n(dev)]
+  [Federated Credential\n(prod)]
+  [Service Principal\n(Enterprise Application)]
+}
+
+package "Azure Subscription" {
+  [RBAC: Contributor\n@ Subscription Scope]
+}
+
+package "Terraform (CI Runner)" {
+  [terraform init]
+  [terraform plan]
+  [terraform apply]
+}
+
+package "Terraform Backend\n(Azure Storage)" {
+  [Resource Group\nrg-pmd-terraform-we]
+  [Storage Account\nsapmdterraformstatewe]
+  [Container\nsc-pmd-terraform-state-we]
+  [Blob: dev.tfstate]
+  [Blob: prod.tfstate]
+}
+
+package "Azure Resources\n(Managed by Terraform)" {
+  [rg-*-dev-we]
+  [rg-*-prod-we]
+  [VNet / Subnets]
+  [App Services / ACR / KV / AI]
+}
+
+' ===== Authentication Flow =====
+[GitHub Actions\n(PinMyDay.Infra)] --> [App Registration\napp-pmd-terraform-ci-we] : OIDC token
+[App Registration\napp-pmd-terraform-ci-we] --> [Service Principal\n(Enterprise Application)] : Issues Azure access token
+[Service Principal\n(Enterprise Application)] --> [RBAC: Contributor\n@ Subscription Scope]
+
+' ===== Terraform Execution =====
+[RBAC: Contributor\n@ Subscription Scope] --> [terraform plan]
+[RBAC: Contributor\n@ Subscription Scope] --> [terraform apply]
+
+' ===== Backend State =====
+[terraform init] --> [Storage Account\nsapmdterraformstatewe]
+[Storage Account\nsapmdterraformstatewe] --> [Container\nsc-pmd-terraform-state-we]
+[Container\nsc-pmd-terraform-state-we] --> [Blob: dev.tfstate]
+[Container\nsc-pmd-terraform-state-we] --> [Blob: prod.tfstate]
+
+' ===== Resource Creation =====
+[terraform apply] --> [rg-*-dev-we]
+[terraform apply] --> [rg-*-prod-we]
+[terraform apply] --> [VNet / Subnets]
+[terraform apply] --> [App Services / ACR / KV / AI]
+
+@enduml

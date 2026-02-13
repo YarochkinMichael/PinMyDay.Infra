@@ -1,0 +1,43 @@
+@startuml
+title PinMyDay - Development & Deployment Flow (OIDC + Terraform)
+
+actor Developer
+participant "Local Machine\n(Terraform CLI)" as Local
+participant "GitHub Repository" as Repo
+participant "GitHub Actions" as Actions
+participant "Azure Entra ID\n(App Registration)" as Entra
+participant "Service Principal" as SP
+participant "Azure Subscription" as Azure
+participant "Terraform Backend\n(Azure Storage)" as Backend
+
+== Local Development ==
+
+Developer -> Local : Modify .tf files
+Developer -> Local : terraform init
+Local -> Backend : Read dev.tfstate
+Developer -> Local : terraform plan
+Developer -> Local : terraform apply (optional local test)
+Local -> Azure : Azure API calls (via SP login)
+Azure --> Local : Resource changes applied
+
+== Commit & Push ==
+
+Developer -> Repo : git commit
+Developer -> Repo : git push
+
+== CI/CD Pipeline ==
+
+Repo -> Actions : Trigger workflow (dev/prod environment)
+
+Actions -> Entra : Send OIDC token
+Entra -> Entra : Validate federated credential
+Entra -> SP : Issue short-lived Azure access token
+
+Actions -> Backend : terraform init
+Actions -> Azure : terraform plan
+Actions -> Azure : terraform apply
+
+Azure --> Backend : Update dev.tfstate / prod.tfstate
+Azure --> Actions : Deployment successful
+
+@enduml
