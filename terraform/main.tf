@@ -1,21 +1,26 @@
-terraform {
-  required_version = ">= 1.6.0"
-
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 3.100"
-    }
-  }
-
-  backend "azurerm" {
-    resource_group_name  = "rg-pmd-terraform-we"
-    storage_account_name = "sapmdterraformstatewe"
-    container_name       = "sc-pmd-terraform-state-we"
-    key                  = "dev.tfstate" # change in prod workflow
-  }
+resource "azurerm_resource_group" "main" {
+  name     = "rg-${local.name_prefix}"
+  location = local.location
+  tags     = local.tags
 }
 
-provider "azurerm" {
-  features {}
+module "network" {
+  source      = "./modules/network"
+  name_prefix = local.name_prefix
+  location    = local.location
+  rg_name     = azurerm_resource_group.main.name
+  tags        = local.tags
+
+  vnet_cidr = var.vnet_cidr
+  subnets   = var.subnets
+}
+
+module "appservice" {
+  source      = "./modules/appservice"
+  name_prefix = local.name_prefix
+  location    = local.location
+  rg_name     = azurerm_resource_group.main.name
+  tags        = local.tags
+
+  sku_name = var.appservice_sku
 }

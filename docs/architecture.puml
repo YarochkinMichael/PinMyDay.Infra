@@ -1,5 +1,5 @@
 @startuml
-title PinMyDay - Terraform OIDC Architecture
+title PinMyDay - Terraform OIDC + 3-Tier Network Architecture
 
 package "GitHub" {
   [GitHub Actions\n(PinMyDay.Infra)]
@@ -33,10 +33,31 @@ package "Terraform Backend\n(Azure Storage)" {
 }
 
 package "Azure Resources\n(Managed by Terraform)" {
-  [rg-*-dev-we]
-  [rg-*-prod-we]
-  [VNet / Subnets]
-  [App Services / ACR / KV / AI]
+
+  package "Resource Group\nrg-pmd-dev-we" {
+
+    package "Virtual Network\nvnet-pmd-dev-we" {
+
+      [Subnet: front\n10.10.1.0/24]
+      [Subnet: back\n10.10.2.0/24]
+      [Subnet: db\n10.10.3.0/24]
+
+      [NSG: front]
+      [NSG: back]
+      [NSG: db]
+
+      [Subnet: front\n10.10.1.0/24] --> [NSG: front]
+      [Subnet: back\n10.10.2.0/24] --> [NSG: back]
+      [Subnet: db\n10.10.3.0/24] --> [NSG: db]
+
+      ' Logical traffic flow
+      [Subnet: front\n10.10.1.0/24] --> [Subnet: back\n10.10.2.0/24] : Allowed
+      [Subnet: back\n10.10.2.0/24] --> [Subnet: db\n10.10.3.0/24] : Allowed
+    }
+
+    [App Service\napp-pmd-dev-we\n(Public)]
+    [App Service Plan\nasp-pmd-dev-we]
+  }
 }
 
 ' ===== Authentication Flow =====
@@ -55,9 +76,8 @@ package "Azure Resources\n(Managed by Terraform)" {
 [Container\nsc-pmd-terraform-state-we] --> [Blob: prod.tfstate]
 
 ' ===== Resource Creation =====
-[terraform apply] --> [rg-*-dev-we]
-[terraform apply] --> [rg-*-prod-we]
-[terraform apply] --> [VNet / Subnets]
-[terraform apply] --> [App Services / ACR / KV / AI]
+[terraform apply] --> [Resource Group\nrg-pmd-dev-we]
+[terraform apply] --> [Virtual Network\nvnet-pmd-dev-we]
+[terraform apply] --> [App Service\napp-pmd-dev-we\n(Public)]
 
 @enduml
